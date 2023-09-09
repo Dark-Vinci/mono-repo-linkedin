@@ -1,6 +1,6 @@
-// import { zeroUUID } from '../constants';
+import { randomUUID } from 'crypto';
 
-const zeroUUID = 'abc';
+import { zeroUUID } from '@constants';
 
 export class UUID {
   private value: string;
@@ -15,9 +15,7 @@ export class UUID {
   }
 
   public static new(): UUID {
-    // Implement UUID generation logic (e.g., using a library or algorithm)
-    const randomUUID = '123e4567-e89b-12d3-a456-426614174000'; // Replace with your generated UUID
-    return new UUID(randomUUID);
+    return new UUID(randomUUID());
   }
 
   public static nil(): UUID {
