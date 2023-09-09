@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package linkedin_clone.account;
+
+message PingResponse {
+    string request_id = 1;
+}

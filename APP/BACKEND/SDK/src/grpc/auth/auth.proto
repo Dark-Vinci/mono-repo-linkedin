@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package linkedin_clone.auth;
+
+import "google/protobuf/timestamp.proto";
+
+import "auth/request.proto";
+import "auth/response.proto";
+
+service Auth {
+    rpc Ping(PingRequest) returns (PingResponse) {}
+}
