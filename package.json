@@ -12,5 +12,8 @@
   "workspaces": [
     "./APP/BACKEND/*",
     "./APP/FRONTEND/*"
-  ]
+  ],
+  "dependencies": {
+    "husky": "^8.0.3"
+  }
 }

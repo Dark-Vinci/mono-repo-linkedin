@@ -17,8 +17,13 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
+    // "assets"
+    // "watchAssets": true,
     "paths": {
       "@constants": ["./src/constants"],
+      "@errors": ["./src/errors"],
+      "@helpers": ["./src/helpers"],
+      "@models": ["./src/models"],
     }
   }
 }
