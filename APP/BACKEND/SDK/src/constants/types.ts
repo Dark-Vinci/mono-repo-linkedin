@@ -23,3 +23,9 @@ export enum TerminationSignal {
 export enum ClusterSignal {
   EXIT = 'exit',
 }
+
+export enum ServiceName {
+  AUTH = 'auth',
+  GATE = 'gate',
+  ACCOUNT = 'account',
+}

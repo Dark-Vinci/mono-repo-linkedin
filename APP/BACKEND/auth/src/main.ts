@@ -3,85 +3,83 @@ import { cpus } from 'os';
 
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { ValidationPipe } from '@nestjs/common';
 
 import { ShutdownService, AppModule } from '@startup';
 
-// set cors and compression, validations;
-// set logging
+class App {
+  private readonly numCPUs =
+    process.env.NODE_ENV === 'development' ? 1 : cpus().length;
 
-async function bootstrap() {
-  try {
-    let numCPUs = cpus().length;
+  private primaryWorker(): void {
+    console.log(`Primary ${process.pid} is running`);
 
-    if (process.env.NODE_ENV === 'development') {
-      numCPUs = 1;
+    // Fork workers.
+    for (let i = 0; i < this.numCPUs; i++) {
+      cluster.fork();
     }
 
-    switch (true) {
-      case cluster.isPrimary: {
-        console.log(`Primary ${process.pid} is running`);
+    cluster.on('exit', (worker, code, signal) => {
+      console.log({ code, signal });
+      // fork a new cluster
+      cluster.fork();
+      console.log(`worker ${worker.process.pid} died`);
+    });
+  }
 
-        // Fork workers.
-        for (let i = 0; i < numCPUs; i++) {
-          cluster.fork();
-        }
+  private async childWorker(): Promise<void> {
+    try {
+      // set time zone
+      process.env.TZ = 'Africa/Lagos';
 
-        cluster.on('exit', (worker, code, signal) => {
-          console.log({ code, signal });
-          // fork a new cluster
-          cluster.fork();
-          console.log(`worker ${worker.process.pid} died`);
-        });
-        break;
-      }
-      default: {
-        const apps = await NestFactory.create(AppModule);
-        // apps.connectMicroservice<MicroserviceOptions>(grpcClientOptions);
+      const app = await NestFactory.create(AppModule);
+      const shutdownService = app.get(ShutdownService);
 
-        await apps.startAllMicroservices();
+      // listen to termination signals
+      process.on('SIGINT', async () => {
+        await shutdownService.shutdown();
+        process.exit(0);
+      });
 
-        // set time zone
-        process.env.TZ = 'Africa/Lagos';
+      process.on('SIGTERM', async () => {
+        await shutdownService.shutdown();
+        process.exit(0);
+      });
 
-        const app = await NestFactory.create(AppModule);
-        const shutdownService = app.get(ShutdownService);
+      process.on('SIGHUP', async () => {
+        await shutdownService.shutdown();
+        process.exit(0);
+      });
 
-        // listen to termination signals
-        process.on('SIGINT', async () => {
-          await shutdownService.shutdown();
-          process.exit(0);
-        });
+      const grpcClientOptions: MicroserviceOptions = {
+        transport: Transport.GRPC,
+        options: {
+          package: 'AUTH',
+          gracefulShutdown: true,
+          protoPath: '../../SDK/grpc/auth/auth.proto',
+        },
+      };
 
-        process.on('SIGTERM', async () => {
-          await shutdownService.shutdown();
-          process.exit(0);
-        });
+      app.connectMicroservice<MicroserviceOptions>(grpcClientOptions);
+      app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
 
-        process.on('SIGHUP', async () => {
-          await shutdownService.shutdown();
-          process.exit(0);
-        });
+      await app.startAllMicroservices();
+      await app.listen(3000);
+      const url = await app.getUrl();
 
-        const grpcClientOptions: MicroserviceOptions = {
-          transport: Transport.GRPC,
-          options: {
-            package: 'AUTH',
-            gracefulShutdown: true,
-            protoPath: '../../SDK/grpc/auth/auth.proto',
-          },
-        };
-
-        apps.connectMicroservice<MicroserviceOptions>(grpcClientOptions);
-
-        await apps.startAllMicroservices();
-        await app.listen(3000);
-        const url = await app.getUrl();
-
-        console.log(`Worker ${process.pid} started on URL| ${url}`);
-      }
+      console.log(`Worker ${process.pid} started on URL| ${url}`);
+    } catch (error) {
+      console.log({ error });
     }
-  } catch (error) {
-    console.log({ error });
+  }
+
+  public async start(): Promise<void> {
+    if (cluster.isPrimary) {
+      this.primaryWorker();
+    } else {
+      await this.childWorker();
+    }
   }
 }
-bootstrap();
+
+new App().start();
